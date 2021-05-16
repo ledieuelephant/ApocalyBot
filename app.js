@@ -5,6 +5,7 @@ const discordemoji = require('discord-emoji');
 const moment = require('moment')
 const fs = require('fs');
 var cron = require("cron");
+var weather = require("weather-js")
 const config = require('./config.json')
 const prefix = config.prefix;
 // Configuration des modules discords
@@ -14,6 +15,7 @@ var channelPlace = new Discord.TextChannel(Apocalypse, {id : "842604675014459392
 var joueurRole = new Discord.Role(client, {id : "837682493330554910"}, Apocalypse)
 var timeChannel = new Discord.VoiceChannel(Apocalypse, {id : "842700182851813376"})
 var hourChannel = new Discord.VoiceChannel(Apocalypse, {id: "842702083567255553"})
+var meteoChannel = new Discord.VoiceChannel(Apocalypse, {id: "843549596692774912"})
 // Liste des messages d'annonces
 var messageJour = ""
 var messageMort = ""
@@ -27,7 +29,11 @@ client.on('ready', () => {
 setInterval(function () {
   var titrechannel = String("Il est environ : "+ moment().format("HH:mm"))
   hourChannel.edit({name : titrechannel})
-}, 10000)
+  weather.find({search: "Montolivet", degreeType: 'C'}, function(err,result) {
+    if(err) console.log(err);
+    meteoChannel.edit({name: "Meteo : "+result[0].current.skytext})
+  })
+}, 60000)
 
 var heurejourJob = new cron.CronJob('0 10 * * *', function(){
     timeChannel.edit({name: "Jour sur Thiercellieux"})
@@ -166,7 +172,7 @@ client.on('message', async message => {
           channelPlace.updateOverwrite(joueurRole , {SEND_MESSAGES: false})
         }
         else if(command === "test"){
-          channelAnnonce.send("test")
+          message.channel.send('test')
         }
         else if(command === "addrole"){
           if (!args[0]) {
@@ -216,18 +222,20 @@ client.on('message', async message => {
     }
 });
 // On gère les automatismes de la partie
-while (bouclePartie){
   var jourJob = new cron.CronJob('0 20 * * *', function(){
-    channelAnnonce.send(messageJour);
-    channelPlace.updateOverwrite(joueurRole , {SEND_MESSAGES: true})
+    if (bouclePartie) {
+      channelAnnonce.send(messageJour);
+      channelPlace.updateOverwrite(joueurRole , {SEND_MESSAGES: true})
+    }
   })
   var nuitJob = new cron.CronJob('0 10 * * *', function(){
-    channelAnnonce.send(messageNuit);
-    channelPlace.updateOverwrite(joueurRole , {SEND_MESSAGES: false})
+    if (bouclePartie) {
+      channelAnnonce.send(messageMort);
+      channelPlace.updateOverwrite(joueurRole , {SEND_MESSAGES: true})
+    }
   })
   jourJob.start()
   nuitJob.start()
-}
 // Gestions de fichiers
 function writeFile(file, data) {
   data = JSON.stringify(data);
